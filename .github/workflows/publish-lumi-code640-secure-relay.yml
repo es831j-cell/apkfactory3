@@ -34,7 +34,7 @@ jobs:
           repository: es831j-cell/Lumi-APK-Factory-Build
           ref: main
           token: ${{ secrets.LUMI_FACTORY_TOKEN }}
-          fetch-depth: 0
+          fetch-depth: 1
           path: factory
           persist-credentials: true
 
@@ -52,7 +52,7 @@ jobs:
       - name: Build sign and publish Code640 from private factory
         shell: bash
         working-directory: factory
-        run: bash .lumi/factory/run-code640-lumi-core-evolution-r350.sh
+        run: bash .lumi/factory/run-code640-anchorfix-r350.sh
 
       - name: Verify private release pointer advanced to Code640
         shell: bash
