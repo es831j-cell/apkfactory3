@@ -1,0 +1,70 @@
+name: Publish Lumi Code640 Secure Relay
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-lumi-code640-secure-relay.yml'
+      - '.lumi/relay/code640.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lumi-code640-secure-relay
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Require private relay credential
+        shell: bash
+        env:
+          LUMI_FACTORY_TOKEN: ${{ secrets.LUMI_FACTORY_TOKEN }}
+        run: |
+          if [ -z "$LUMI_FACTORY_TOKEN" ]; then
+            echo "::error::Missing repository secret LUMI_FACTORY_TOKEN. It must be a fine-grained token limited to es831j-cell/Lumi-APK-Factory-Build with Contents read/write."
+            exit 2
+          fi
+
+      - name: Checkout private Lumi factory
+        uses: actions/checkout@v4
+        with:
+          repository: es831j-cell/Lumi-APK-Factory-Build
+          ref: main
+          token: ${{ secrets.LUMI_FACTORY_TOKEN }}
+          fetch-depth: 0
+          path: factory
+          persist-credentials: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build sign and publish Code640 from private factory
+        shell: bash
+        working-directory: factory
+        run: bash .lumi/factory/run-code640-lumi-core-evolution-r350.sh
+
+      - name: Verify private release pointer advanced to Code640
+        shell: bash
+        working-directory: factory
+        run: |
+          git fetch --force origin +refs/heads/lumi-release:refs/remotes/origin/lumi-release
+          git show origin/lumi-release:.lumi/latest-update.json > /tmp/code640-pointer.json
+          grep -Fq '"targetVersionCode":640' /tmp/code640-pointer.json
+          python3 - <<'PY'
+          import json, subprocess
+          p=json.load(open('/tmp/code640-pointer.json'))
+          path=p['packagePath']
+          subprocess.run(['git','cat-file','-e',f'origin/lumi-release:{path}'],check=True)
+          print('CODE640_SECURE_RELAY_PUBLISHED', path)
+          PY
