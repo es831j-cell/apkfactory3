@@ -1,0 +1,70 @@
+name: Build Lumi Docking Station
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.lumi/docking-station-trigger.txt'
+      - '.github/workflows/build-lumi-docking-station.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Require private source credential
+        shell: pwsh
+        env:
+          LUMI_FACTORY_TOKEN: ${{ secrets.LUMI_FACTORY_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:LUMI_FACTORY_TOKEN)) {
+            throw 'LUMI_FACTORY_TOKEN repository secret is missing.'
+          }
+
+      - name: Checkout private Lumi factory
+        uses: actions/checkout@v4
+        with:
+          repository: es831j-cell/Lumi-APK-Factory-Build
+          token: ${{ secrets.LUMI_FACTORY_TOKEN }}
+          path: factory
+          fetch-depth: 1
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Docking Station
+        shell: pwsh
+        run: dotnet restore factory/windows/LumiDockingStation/LumiDockingStation.csproj
+
+      - name: Publish self-contained Windows app
+        shell: pwsh
+        run: |
+          dotnet publish factory/windows/LumiDockingStation/LumiDockingStation.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -o factory/windows/LumiDockingStation/publish
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found at $iscc" }
+          & $iscc 'factory\windows\LumiDockingStation\installer\LumiDockingStation.iss'
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lumi-Docking-Station-Setup-0.1.0
+          path: factory/windows/LumiDockingStation/artifacts/Lumi-Docking-Station-Setup-0.1.0.exe
+          if-no-files-found: error
+          retention-days: 14
