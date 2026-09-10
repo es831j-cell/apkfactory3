@@ -1,0 +1,11 @@
+name: Public Actions Canary
+on:
+  push:
+    paths:
+      - '.github/workflows/actions-canary.yml'
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public runner starts
+        run: echo "public runner available"
