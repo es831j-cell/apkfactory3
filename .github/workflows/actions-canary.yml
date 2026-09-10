@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/actions-canary.yml'
+      - '.github/workflows/actions-canary.trigger'
 jobs:
   canary:
     runs-on: ubuntu-latest
